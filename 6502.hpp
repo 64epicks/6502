@@ -93,7 +93,7 @@ class CPU
     #ifndef NO_INLINE
     private:
     #else
-    #error PROTECT_REGISTERS and NO_INLINE can't be enabled at the same time!
+    #error PROTECT_REGISTERS and NO_INLINE can not be enabled at the same time!
     #endif
     #endif
     unsigned short PC;
