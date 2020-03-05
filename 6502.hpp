@@ -74,8 +74,8 @@ class CPU
     inline void cycles(unsigned int c) { while (c--) { cycle(); } }
     inline void step() { do { cycle(); } while (state != FETCH); }
 
-    void run(bool thread = true);
-    void run(unsigned long, bool thread = true);
+    void run(unsigned long speed = 1789773);
+    void run(unsigned long long ms, unsigned long speed = 1789773);
 
     void raise(enum raise_modes);
 

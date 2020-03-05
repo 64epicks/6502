@@ -22,6 +22,8 @@ SOFTWARE.
 */
 #include <6502.hpp>
 #include <string.h>
+#include <chrono>
+#include <thread>
 namespace CPU {
 void CPU::variablesInit()
 {
@@ -56,6 +58,34 @@ CPU::CPU(unsigned char (*readByte)(unsigned short), void (*writeByte)(unsigned s
 {
     variablesInit();
     setRW(readByte, writeByte);
+}
+
+void CPU::run(unsigned long speed)
+{
+    unsigned long ns;
+    if (speed)
+        ns = 1000000000 / speed;
+
+    while (true) {
+        cycle();
+        if (speed)
+            std::this_thread::sleep_for(std::chrono::nanoseconds(ns));
+    }
+}
+void CPU::run(unsigned long long ms, unsigned long speed)
+{
+    unsigned long ns;
+    if (speed)
+        ns = 1000000000 / speed;
+
+    auto startTime = std::chrono::high_resolution_clock::now();
+    while (true) {
+        cycle();
+        if (std::chrono::high_resolution_clock::now() - startTime > std::chrono::milliseconds(ms))
+            break;
+        if (speed)
+            std::this_thread::sleep_for(std::chrono::nanoseconds(ns));
+    }
 }
 
 #define VECTOR_NMI   0xFFFA
