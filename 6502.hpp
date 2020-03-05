@@ -46,6 +46,9 @@ enum instruction_state
     FETCH,
     LOAD,
     EXECUTE,
+    SRESET,
+    SNMI,
+    SIRQ,
 };
 enum addressing_mode
 {
@@ -77,8 +80,8 @@ class CPU
     void raise(enum raise_modes);
 
     private:
-    unsigned short PC, S;
-    unsigned char A, X, Y;
+    unsigned short PC;
+    unsigned char A, X, Y, S;
     bool P[8];
 
     unsigned char (*readByte)(unsigned short);
@@ -87,7 +90,6 @@ class CPU
     void variablesInit();
 
     enum instruction_state state;
-    enum raise_modes mode;
     enum addressing_mode addm;
     unsigned char cycle_count;
     unsigned char opcode, wv0, wv1;
@@ -125,16 +127,19 @@ class CPU
     void o_rti();
     void o_rts();
     void o_sbc();
+    void o_php();
+    void o_plp();
 
-    void o_br();
-    void o_fl();
+    void o_br(bool&, bool);
+    void o_fl(bool&, bool);
     void o_cp(unsigned char&);
-    void o_de();
-    void o_in();
+    void o_de(unsigned char&);
+    void o_in(unsigned char&);
     void o_ld(unsigned char&);
-    void o_ph();
     void o_st(unsigned char&);
-    void o_stk();
+    void o_tr(unsigned char&, unsigned char);
+    void o_ph(unsigned char);
+    void o_pl(unsigned char&);
 
     inline void flUpdate(unsigned char v)
     {
@@ -142,8 +147,8 @@ class CPU
         P[ZERO] = v == 0;
     }
 
-    bool vectorFetch;
-    void vectorPull(enum raise_modes mode);
+    bool irqc;
+    void irq();
 
     #define RD_DEFAULT_RETURN_DATA 0xEA // 6502 instruction NOP
     inline unsigned char rd(unsigned short adr)
