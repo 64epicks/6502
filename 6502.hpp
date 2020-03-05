@@ -73,6 +73,7 @@ class CPU
     void cycle();
     inline void cycles(unsigned int c) { while (c--) { cycle(); } }
     inline void step() { do { cycle(); } while (state != FETCH); }
+    inline void steps(unsigned int c) { while (c--) { step(); }}
 
     void run(unsigned long speed = 1789773);
     void run(unsigned long long ms, unsigned long speed = 1789773);
