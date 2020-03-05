@@ -24,7 +24,9 @@ SOFTWARE.
 #include <string.h>
 #include <chrono>
 #include <thread>
+#ifndef NO_NAMESPACE
 namespace CPU {
+#endif
 void CPU::variablesInit()
 {
     memset(&P, 0, sizeof(P));
@@ -917,4 +919,30 @@ void CPU::o_plp()
     P[NEGATIVE]     = (p >> 7) & 1;
     state = FETCH;
 }
+
+#ifdef NO_INLINE
+unsigned char CPU::rd(unsigned short adr)
+{
+    if (readByte != nullptr) {
+        return readByte(adr);
+    }
+    return RD_DEFAULT_RETURN_DATA;
 }
+void CPU::wr(unsigned short adr, unsigned char value)
+{
+    if (writeByte != nullptr)
+    {
+        writeByte(adr, value);
+    }
+}
+void CPU::push(unsigned char val) { wr(0x100 + S--, val); }
+unsigned char CPU::pop()          { return rd(0x100 + (++S)); }
+void CPU::flUpdate(unsigned char v)
+{
+    P[NEGATIVE] = (v >> 7) & 1;
+    P[ZERO] = v == 0;
+}
+#endif
+#ifndef NO_NAMESPACE
+}
+#endif
