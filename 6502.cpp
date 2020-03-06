@@ -41,7 +41,8 @@ void CPU::variablesInit()
     readByte = nullptr;
     writeByte = nullptr;
 
-    state = SRESET;
+    state = FETCH;
+    iflag = IRESET;
     cycle_count = 0;
     av = 0;
 
@@ -100,14 +101,14 @@ void CPU::irq()
         return;
     switch (cycle_count) {
     case 0:
-        if (state == SNMI)
+        if (iflag == INMI)
             cycle_count += 2;
         else
             ++cycle_count;
         break;
     case 1:
         ++cycle_count;
-        if (state == SRESET)
+        if (iflag == IRESET)
             cycle_count += 2;
         break;
     case 2:
@@ -119,7 +120,9 @@ void CPU::irq()
         ++cycle_count;
         break;
     case 4:
-        push(P_CHAR | ((state == SNMI) << 4));
+        push(P_CHAR | ((iflag == INMI) << 4));
+        if (iflag = IIRQ)
+            P[INTERRUPT] = false;
         cycle_count += 4;
         break;
     case 5:
@@ -133,33 +136,33 @@ void CPU::irq()
         ++cycle_count;
         break;
     case 8:
-        switch (state) {
-        case SNMI:
+        switch (iflag) {
+        case INMI:
             PC = rd(VECTOR_NMI);
             break;
-        case SRESET:
+        case IRESET:
             PC = rd(VECTOR_RESET);
             break;
-        case SIRQ:
+        case IIRQ:
             PC = rd(VECTOR_IRQ);
             break;
         }
         ++cycle_count;
         break;
     case 9:
-        switch (state) {
-        case SNMI:
+        switch (iflag) {
+        case INMI:
             PC = (rd(VECTOR_NMI+1) << 8) | PC;
             break;
-        case SRESET:
+        case IRESET:
             PC = (rd(VECTOR_RESET+1) << 8) | PC;
             break;
-        case SIRQ:
+        case IIRQ:
             PC = (rd(VECTOR_IRQ+1) << 8) | PC;
             break;
         }
         cycle_count = 0;
-        state = FETCH;
+        iflag = INONE;
         irqc = false;
         break;
     }
@@ -168,21 +171,15 @@ void CPU::raise(enum raise_modes m)
 {
     switch (m) {
     case NMI:
-        if (P[INTERRUPT]) {
-            step();
-            irqc = true;
-            state = SNMI;
-        }
+        iflag = INMI;
         break;
     case RESET:
-        step();
-        irqc = true;
-        state = SRESET;
+        iflag = IRESET;
         break;
     case IRQ:
-        step();
-        irqc = true;
-        state = SIRQ;
+        if (P[INTERRUPT]) {
+            iflag = IIRQ;   
+        }
         break;
     }
 }
@@ -317,6 +314,8 @@ void CPU::cycle()
         return exec();
         break;
     }
+    if (state == FETCH && irqc == false && iflag != INONE)
+        irqc = true;
 }
 
 // Addressing mode functions
@@ -812,7 +811,8 @@ void CPU::o_br(bool& flag, bool v)
 void CPU::o_brk()
 {
     irqc = true;
-    state = SNMI;
+    iflag = INMI;
+    state = FETCH;
     irq();
 }
 void CPU::o_tr(unsigned char& reg0, unsigned char reg1)

@@ -48,9 +48,13 @@ enum instruction_state
     FETCH,
     LOAD,
     EXECUTE,
-    SRESET,
-    SNMI,
-    SIRQ,
+};
+enum interrupt_flag
+{
+    INONE,
+    IRESET,
+    INMI,
+    IIRQ,
 };
 enum addressing_mode
 {
@@ -112,6 +116,7 @@ class CPU
     void variablesInit();
 
     enum addressing_mode addm;
+    enum interrupt_flag iflag;
     unsigned char cycle_count;
     unsigned char opcode, wv0, wv1;
     unsigned short av;
