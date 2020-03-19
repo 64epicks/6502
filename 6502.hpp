@@ -26,11 +26,12 @@ SOFTWARE.
 #ifndef NO_NAMESPACE
 namespace CPU {
 #endif
-enum raise_modes
+enum interrupt_flag
 {
     NMI,
     RESET,
-    IRQ
+    IRQ,
+    INONE,
 };
 enum status_flags
 {
@@ -49,15 +50,9 @@ enum instruction_state
     LOAD,
     EXECUTE,
 };
-enum interrupt_flag
-{
-    INONE,
-    IRESET,
-    INMI,
-    IIRQ,
-};
 enum addressing_mode
 {
+    IMPLIED,
     IMM,
     ZP,
     ZPX,
@@ -69,6 +64,11 @@ enum addressing_mode
     INDY,
 };
 #define CPU_DEFAULT_SPEED 1789773 /* ~1.79 MHz */
+#ifdef NO_INLINE
+#define _INLINE_PREFIX
+#else
+#define _INLINE_PREFIX inline
+#endif
 class CPU
 {
     public:
@@ -78,27 +78,18 @@ class CPU
     void setRW(unsigned char (*readByte)(unsigned short), void (*writeByte)(unsigned short, unsigned char));
 
     void cycle();
-    #ifndef NO_INLINE
-    inline void cycles(unsigned int c) { while (c--) { cycle(); } }
-    inline void step() { do { cycle(); } while (state != FETCH); }
-    inline void steps(unsigned int c) { while (c--) { step(); }}
-    #else
-    #define cycles(c) while (c--) { cycle(); }
-    #define step() do { cycle(); } while (state != FETCH);
-    #define steps(c) while (c--) { step(); }
-    #endif
+    _INLINE_PREFIX void cycles(unsigned int c) { while (c--) { cycle(); } }
+    _INLINE_PREFIX void step() { do { cycle(); } while (state != FETCH || intc == true); }
+    _INLINE_PREFIX void steps(unsigned int c) { while (c--) { step(); }}
 
     void run(unsigned long speed = CPU_DEFAULT_SPEED);
     void run(unsigned long long ms, unsigned long speed = CPU_DEFAULT_SPEED);
 
-    void raise(enum raise_modes);
+    void raise(enum interrupt_flag);
+    void unraise(enum interrupt_flag);
 
     #ifdef PROTECT_REGISTERS
-    #ifndef NO_INLINE
     private:
-    #else
-    #error PROTECT_REGISTERS and NO_INLINE can not be enabled at the same time!
-    #endif
     #endif
     unsigned short PC;
     unsigned char A, X, Y, S;
@@ -117,12 +108,17 @@ class CPU
 
     enum addressing_mode addm;
     enum interrupt_flag iflag;
+    bool rnmi, rirq, rbrk;
     unsigned char cycle_count;
     unsigned char opcode, wv0, wv1;
     unsigned short av;
     void fetch();
     void load();
     void exec();
+
+    void ctrl_parse();
+    void aluc_parse();
+    void rmwc_parse();
 
     /* Addressing mode functions */
     void zp();
@@ -141,8 +137,8 @@ class CPU
     void o_bit();
     void o_brk();
     void o_dec();
-    void o_inc();
     void o_eor();
+    void o_inc();
     void o_jmp();
     void o_jsr();
     void o_lsr();
@@ -167,39 +163,53 @@ class CPU
     void o_ph(unsigned char);
     void o_pl(unsigned char&);
 
-    bool irqc;
+    // Illegal opcodes
+    void o_stp(); // HLT
+    void o_slo();
+    void o_anc();
+    void o_rla();
+    void o_sre(); // LSE
+    void o_alr();
+    void o_rra();
+    void o_arr();
+    void o_shy(); // SAY
+    void o_shx(); // XAS
+    void o_sax(); // AXS
+    void o_xaa();
+    void o_ahx(); // AXA
+    void o_tas();
+    void o_lax();
+    void o_las();
+    void o_dcp(); // DCM
+    void o_axs();
+    void o_isc(); // INS
+
+    bool intc;
+    bool hlt;
     void irq();
 
     #define RD_DEFAULT_RETURN_DATA 0xEA // 6502 instruction NOP
-    #ifndef NO_INLINE
-    inline unsigned char rd(unsigned short adr)
+    _INLINE_PREFIX unsigned char rd(unsigned short adr)
     {
         if (readByte != nullptr) {
             return readByte(adr);
         }
         return RD_DEFAULT_RETURN_DATA;
     }
-    inline void wr(unsigned short adr, unsigned char value)
+    _INLINE_PREFIX void wr(unsigned short adr, unsigned char value)
     {
         if (writeByte != nullptr)
         {
             writeByte(adr, value);
         }
     }
-    inline void push(unsigned char val) { wr(0x100 + S--, val); }
-    inline unsigned char pop()          { return rd(0x100 + (++S)); }
-    inline void flUpdate(unsigned char v)
+    _INLINE_PREFIX void push(unsigned char val) { wr(0x100 + S--, val); }
+    _INLINE_PREFIX unsigned char pop()          { return rd(0x100 + (++S)); }
+    _INLINE_PREFIX void flUpdate(unsigned char v)
     {
         P[NEGATIVE] = (v >> 7) & 1;
         P[ZERO] = v == 0;
     }
-    #else
-    unsigned char rd(unsigned short adr);
-    void wr(unsigned short adr, unsigned char value);
-    void push(unsigned char val);
-    unsigned char pop();
-    void flUpdate(unsigned char v);
-    #endif
 };
 #ifndef NO_NAMESPACE
 } // namespace CPU
